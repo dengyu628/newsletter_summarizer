@@ -159,7 +159,7 @@ def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Pro
             yield f"正在为邮件“{subject[:20]}...”调用AI总结...", all_summaries_html
             try:
                 client = genai.Client()
-                prompt = f"请用中文全面、详细地总结以下邮件内容:\n\n---\n\n{text_content[:8000]}"
+                prompt = f"请用中文全面、详细地总结以下邮件内容（不用Markdown回复）:\n\n---\n\n{text_content[:8000]}"
                 response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
                 summary = response.text
                 
