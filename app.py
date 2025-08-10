@@ -34,6 +34,7 @@ def get_decoded_header(header_string):
     return ''.join(full_header)
 
 def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
+    """连接邮箱获取未读日期，并返回一系列Gradio组件更新指令"""
     if not all([EMAIL_ADDRESS, AUTHORIZATION_CODE]):
         error_msg = "错误：请先在Hugging Face Secrets中设置邮箱信息"
         return error_msg, gr.update(choices=[error_msg], value=error_msg), gr.update(), gr.update(), gr.update(interactive=False)
