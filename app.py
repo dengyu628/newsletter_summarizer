@@ -188,8 +188,13 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
             
             gr.Markdown("### 2. 选择日期范围")
             unread_dates_dropdown = gr.Dropdown(label="高亮的未读邮件日期 (可选)", choices=[], info="选择后会自动填充下面的日期。", interactive=False)
-            start_date_picker = gr.DateTime(label="开始日期", interactive=False)
-            end_date_picker = gr.DateTime(label="结束日期", interactive=False)
+            # 默认填充昨天的日期
+            yesterday_obj = date.today() - timedelta(days=1)
+            default_start_datetime = datetime.combine(yesterday_obj, datetime.min.time())
+            default_end_datetime = datetime.combine(yesterday_obj, datetime.max.time())
+            
+            start_date_picker = gr.DateTime(label="开始日期", value=default_start_datetime, interactive=True)
+            end_date_picker = gr.DateTime(label="结束日期", value=default_end_datetime, interactive=True)
             
             gr.Markdown("### 3. 开始总结")
             run_button = gr.Button("🚀 对选定日期范围进行总结", variant="primary", interactive=False)
