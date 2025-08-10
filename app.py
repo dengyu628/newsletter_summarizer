@@ -34,67 +34,56 @@ def get_decoded_header(header_string):
     return ''.join(full_header)
 
 def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
-    """连接邮箱获取未读日期，并返回一系列Gradio组件更新指令"""
-    if not all([EMAIL_ADDRESS, AUTHORIZATION_CODE]):
-        error_msg = "错误：请先在Hugging Face Secrets中设置邮箱信息"
-        return error_msg, gr.update(choices=[error_msg], value=error_msg), gr.update(), gr.update(), gr.update(interactive=False)
+    """连接邮箱获取未读日期，并返回一系列Gradio组件更新指令"""
+    if not all([EMAIL_ADDRESS, AUTHORIZATION_CODE]):
+        error_msg = "错误：请先在Hugging Face Secrets中设置邮箱信息"
+        # 返回5个更新指令，但后3个为空，表示不改变对应组件
+        return error_msg, gr.update(choices=[error_msg], value=error_msg), gr.update(), gr.update(), gr.update(interactive=False)
 
-    progress(0, desc="正在连接邮箱...")
-    unread_dates = {}
-    mail = None
-    try:
-        local_timezone = timezone(timedelta(hours=8))
-        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(EMAIL_ADDRESS, AUTHORIZATION_CODE)
-        mail.xatom('ID', '("name" "my-gradio-client" "version" "1.0")')
-        status, _ = mail.select('"Newsletter"', readonly=True)
-        if status != 'OK': raise ConnectionError("错误：无法打开'Newsletter'文件夹")
-        
-        progress(0.3, desc="✅ 连接成功！正在查找未读邮件...")
-        status, email_ids_data = mail.search(None, '(UNSEEN)')
-        if status != 'OK' or not email_ids_data[0]:
-            # 【保持不变】如果没有未读邮件，依然保持按钮可交互
-            return "✅ 操作完成。恭喜！没有未读邮件。", gr.update(choices=["没有未读邮件"], value="没有未读邮件", interactive=True), gr.update(interactive=True), gr.update(interactive=True), gr.update(interactive=True)
+    progress(0, desc="正在连接邮箱...")
+    unread_dates = {}
+    mail = None
+    try:
+        local_timezone = timezone(timedelta(hours=8))
+        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
+        mail.login(EMAIL_ADDRESS, AUTHORIZATION_CODE)
+        mail.xatom('ID', '("name" "my-gradio-client" "version" "1.0")')
+        status, _ = mail.select('"Newsletter"', readonly=True)
+        if status != 'OK': raise ConnectionError("错误：无法打开'Newsletter'文件夹")
+        
+        progress(0.3, desc="✅ 连接成功！正在查找未读邮件...")
+        status, email_ids_data = mail.search(None, '(UNSEEN)')
+        if status != 'OK' or not email_ids_data[0]:
+            # 【核心修正】: 即使没有未读邮件，也只更新下拉菜单和启用按钮，不改变日期选择器的值
+            return "✅ 操作完成。恭喜！没有未读邮件。", gr.update(choices=["没有未读邮件"], value="没有未读邮件", interactive=True), gr.update(), gr.update(), gr.update(interactive=True)
 
-        email_ids = email_ids_data[0].split()
-        progress(0.6, desc=f"✅ 找到 {len(email_ids)} 封未读，正在解析日期...")
-        
-        for email_id in email_ids:
-            status, msg_data = mail.fetch(email_id, '(BODY[HEADER.FIELDS (Date)])')
-            if status == 'OK':
-                date_str = get_decoded_header(email.message_from_bytes(msg_data[0][1])['Date'])
-                dt_object_with_tz = email.utils.parsedate_to_datetime(date_str)
-                if dt_object_with_tz:
-                    local_dt_object = dt_object_with_tz.astimezone(local_timezone)
-                    d = local_dt_object.date()
-                    unread_dates[d] = unread_dates.get(d, 0) + 1
-        
-        sorted_dates = sorted(unread_dates.items(), key=lambda item: item[0], reverse=True)
-        formatted_choices = [f"{dt.strftime('%Y-%m-%d')} ({count}封)" for dt, count in sorted_dates]
-        
-        # =======================【核心修改】=======================
-        # 1. 删除了计算 default_start_dt 和 default_end_dt 的逻辑。
-        # 2. 修改了下面的 return 语句。
-        # =========================================================
-        
-        progress(1, desc="✅ 日期解析完毕！")
-        # 【修改后的返回语句】
-        # - 对 unread_dates_dropdown: 更新选项，但默认值设为 None，不自动选中。
-        # - 对 start_date_picker 和 end_date_picker: 只更新为可交互(interactive=True)，不改变它们的值。
-        return (
-            "✅ 日期解析完毕！请在下方选择日期范围。",
-            gr.update(choices=formatted_choices, value=None, interactive=True),
-            gr.update(interactive=True),
-            gr.update(interactive=True),
-            gr.update(interactive=True)
-        )
+        email_ids = email_ids_data[0].split()
+        progress(0.6, desc=f"✅ 找到 {len(email_ids)} 封未读，正在解析日期...")
+        
+        for email_id in email_ids:
+            status, msg_data = mail.fetch(email_id, '(BODY[HEADER.FIELDS (Date)])')
+            if status == 'OK':
+                date_str = get_decoded_header(email.message_from_bytes(msg_data[0][1])['Date'])
+                dt_object_with_tz = email.utils.parsedate_to_datetime(date_str)
+                if dt_object_with_tz:
+                    local_dt_object = dt_object_with_tz.astimezone(local_timezone)
+                    d = local_dt_object.date()
+                    unread_dates[d] = unread_dates.get(d, 0) + 1
+        
+        sorted_dates = sorted(unread_dates.items(), key=lambda item: item[0], reverse=True)
+        formatted_choices = [f"{dt.strftime('%Y-%m-%d')} ({count}封)" for dt, count in sorted_dates]
+        
+        progress(1, desc="✅ 日期解析完毕！")
+        
+        # 【核心修正】: 返回的指令中，第3和第4个gr.update()为空，代表不改变开始和结束日期的值
+        return "✅ 日期解析完毕！请在下方选择日期范围。", gr.update(choices=formatted_choices, value=formatted_choices[0], interactive=True), gr.update(), gr.update(), gr.update(interactive=True)
 
-    except Exception as e:
-        error_msg = f"错误: {str(e)}"
-        return error_msg, gr.update(choices=[error_msg], value=error_msg), gr.update(), gr.update(), gr.update(interactive=False)
-    finally:
-        if mail and mail.state == 'SELECTED': mail.close()
-        if mail: mail.logout()
+    except Exception as e:
+        error_msg = f"错误: {str(e)}"
+        return error_msg, gr.update(choices=[error_msg], value=error_msg), gr.update(), gr.update(), gr.update(interactive=False)
+    finally:
+        if mail and mail.state == 'SELECTED': mail.close()
+        if mail: mail.logout()
 
 def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Progress()):
     """连接邮箱，获取并总结指定日期范围内的邮件。"""
