@@ -86,12 +86,27 @@ def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
         if mail and mail.state == 'SELECTED': mail.close()
         if mail: mail.logout()
 
-def summarize_mail_by_date(start_dt, end_dt, progress=gr.Progress()):
+def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Progress()):
+    """连接邮箱，获取并总结指定日期范围内的邮件。"""
+    
+    # 【核心修正】: 将Gradio传入的float时间戳转换为datetime对象
+    try:
+        start_dt = datetime.fromtimestamp(start_dt_timestamp)
+        end_dt = datetime.fromtimestamp(end_dt_timestamp)
+    except TypeError:
+        # 如果传入的已经是datetime对象，则直接使用（增加代码兼容性）
+        start_dt = start_dt_timestamp
+        end_dt = end_dt_timestamp
+
+    # 检查Secrets是否都已正确配置
     if not all([EMAIL_ADDRESS, AUTHORIZATION_CODE, GEMINI_API_KEY]):
         yield "❌ 错误：启动失败！请检查所有Secrets是否都已正确配置。", ""
         return
+
+    # 从datetime对象中提取date对象 (现在这部分可以正常工作了)
     start_date = start_dt.date()
     end_date = end_dt.date()
+
     TARGET_MAILBOX = "Newsletter" 
     all_summaries_html = ""
     mail = None 
@@ -106,10 +121,12 @@ def summarize_mail_by_date(start_dt, end_dt, progress=gr.Progress()):
         if status != 'OK':
             yield f"❌ 错误：无法选择文件夹 '{TARGET_MAILBOX}'。", ""
             return
+
         since_formatted = start_date.strftime("%d-%b-%Y")
         before_formatted = (end_date + timedelta(days=1)).strftime("%d-%b-%Y")
         search_criteria = f'(SINCE {since_formatted} BEFORE {before_formatted})'
         yield f"正在搜索从 {start_date.strftime('%Y-%m-%d')} 到 {end_date.strftime('%Y-%m-%d')} 的邮件...", all_summaries_html
+        
         status, email_ids_data = mail.search(None, search_criteria)
         if status != 'OK' or not email_ids_data[0]:
             yield "✅ 搜索完成！在指定日期范围内没有收到任何邮件。", ""
@@ -123,6 +140,7 @@ def summarize_mail_by_date(start_dt, end_dt, progress=gr.Progress()):
             progress(i / total_emails, desc=f"正在处理第 {i+1}/{total_emails} 封邮件")
             status, msg_data = mail.fetch(email_id, '(RFC822)')
             if status != 'OK': continue
+            
             msg = email.message_from_bytes(msg_data[0][1])
             subject = get_decoded_header(msg['Subject'])
             sender = get_decoded_header(msg['From'])
@@ -135,13 +153,14 @@ def summarize_mail_by_date(start_dt, end_dt, progress=gr.Progress()):
                     soup = BeautifulSoup(html_body, 'html.parser')
                     text_content = soup.get_text(separator='\n', strip=True)
                     break
+            
             if not text_content: continue
             
             yield f"正在为邮件“{subject[:20]}...”调用AI总结...", all_summaries_html
             try:
                 client = genai.Client()
-                prompt = f"请用中文完整全面总结以下邮件内容:\n\n---\n\n{text_content[:8000]}"
-                response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+                prompt = f"请用中文清晰、完整地总结以下邮件内容，直接输出总结文本:\n\n---\n\n{text_content[:8000]}"
+                response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
                 summary = response.text
                 
                 all_summaries_html += f"<h3>{i+1}. {subject}</h3>"
