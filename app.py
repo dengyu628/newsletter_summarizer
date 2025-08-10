@@ -33,11 +33,13 @@ def get_decoded_header(header_string):
             full_header.append(str(part))
     return ''.join(full_header)
 
+# 在你的 app.py 文件中，找到并替换这个函数
+
 def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
     """连接邮箱获取未读日期，并返回一系列Gradio组件更新指令"""
     if not all([EMAIL_ADDRESS, AUTHORIZATION_CODE]):
         error_msg = "错误：请先在Hugging Face Secrets中设置邮箱信息"
-        # 返回5个更新指令，但后3个为空，表示不改变对应组件
+        # 返回5个更新指令，但后3个为空，表示不改变日期选择器和总结按钮
         return error_msg, gr.update(choices=[error_msg], value=error_msg), gr.update(), gr.update(), gr.update(interactive=False)
 
     progress(0, desc="正在连接邮箱...")
@@ -54,7 +56,6 @@ def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
         progress(0.3, desc="✅ 连接成功！正在查找未读邮件...")
         status, email_ids_data = mail.search(None, '(UNSEEN)')
         if status != 'OK' or not email_ids_data[0]:
-            # 【核心修正】: 即使没有未读邮件，也只更新下拉菜单和启用按钮，不改变日期选择器的值
             return "✅ 操作完成。恭喜！没有未读邮件。", gr.update(choices=["没有未读邮件"], value="没有未读邮件", interactive=True), gr.update(), gr.update(), gr.update(interactive=True)
 
         email_ids = email_ids_data[0].split()
@@ -75,7 +76,9 @@ def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
         
         progress(1, desc="✅ 日期解析完毕！")
         
-        # 【核心修正】: 返回的指令中，第3和第4个gr.update()为空，代表不改变开始和结束日期的值
+        # 【核心修正】:
+        # 移除了所有计算和返回新日期的逻辑。
+        # 返回的指令中，第3和第4个gr.update()为空，代表不改变开始和结束日期的值。
         return "✅ 日期解析完毕！请在下方选择日期范围。", gr.update(choices=formatted_choices, value=formatted_choices[0], interactive=True), gr.update(), gr.update(), gr.update(interactive=True)
 
     except Exception as e:
@@ -158,7 +161,7 @@ def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Pro
             yield f"正在为邮件“{subject[:20]}...”调用AI总结...", all_summaries_html
             try:
                 client = genai.Client()
-                prompt = f"请用中文全面、详细地总结以下邮件内容（不用Markdown回复）:\n\n---\n\n{text_content[:8000]}"
+                prompt = f"请用中文详细总结以下邮件正文内容:\n\n---\n\n{text_content[:8000]}"
                 response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
                 summary = response.text
                 
@@ -178,7 +181,7 @@ def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Pro
 
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总结助手") as demo:
     gr.Markdown("# 📧 邮件智能总结助手")
-    gr.Markdown("自动连接到您的“Newsletter”文件夹，一键总结指定日期的所有邮件。")
+    gr.Markdown("自动连接到“Newsletter”文件夹，一键总结指定日期的所有邮件。")
 
     with gr.Row():
         with gr.Column(scale=1):
