@@ -209,7 +209,5 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
     )
 
 if __name__ == "__main__":
-    # 从环境变量中获取Render提供的端口，如果没有则默认为7860
-    server_port = int(os.environ.get('PORT', 7860))
     # 监听在0.0.0.0，允许来自容器外部的连接
-    demo.launch(server_name="0.0.0.0", server_port=server_port)
+    demo.launch(server_name="0.0.0.0", server_port=10000)
