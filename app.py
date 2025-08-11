@@ -190,7 +190,6 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
             with gr.Row():
                 mailbox_dropdown = gr.Dropdown(
                     label=None,
-                    placeholder="选择一个收件箱",
                     choices=MAILBOX_CHOICES,
                     value="Newsletter",
                     interactive=True,
