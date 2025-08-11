@@ -75,7 +75,7 @@ def fetch_unread_email_dates_and_update_ui(mailbox_name, progress=gr.Progress())
         
         # 【核心修正】: 只更新下拉菜单的 'choices'，不再更新 'value'
         # 这将避免触发 .change 事件，从而保留日期选择器的默认值
-        return "✅ 日期解析完毕！请在下方选择日期范围。", gr.update(choices=formatted_choices, value=formatted_choices[0], interactive=True), gr.update(), gr.update(), gr.update(interactive=True)
+        return "✅ 日期解析完毕！请在下方选择日期范围。", gr.update(choices=formatted_choices, interactive=True), gr.update(), gr.update(), gr.update(interactive=True)
 
     except Exception as e:
         error_msg = f"错误: {str(e)}"
