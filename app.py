@@ -189,7 +189,7 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
             gr.Markdown("### 1. 连接邮箱并查找未读邮件")
             with gr.Row():
                 mailbox_dropdown = gr.Dropdown(
-                    show_label=None,
+                    show_label=False,
                     choices=MAILBOX_CHOICES,
                     value="Newsletter",
                     interactive=True,
