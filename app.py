@@ -189,7 +189,8 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
             gr.Markdown("### 1. 连接邮箱并查找未读邮件")
             with gr.Row():
                 mailbox_dropdown = gr.Dropdown(
-                    label="选择收件箱",
+                    label=None,
+                    placeholder="选择一个收件箱",
                     choices=MAILBOX_CHOICES,
                     value="Newsletter",
                     interactive=True,
@@ -206,13 +207,13 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
             default_end_datetime = datetime.combine(yesterday_obj, datetime.max.time())
             
             with gr.Row():
-                start_date_picker = gr.DateTime(label="开始日期", value=default_start_datetime, interactive=False)
-                end_date_picker = gr.DateTime(label="结束日期", value=default_end_datetime, interactive=False)
+                start_date_picker = gr.DateTime(label="开始日期", value=default_start_datetime, interactive=True)
+                end_date_picker = gr.DateTime(label="结束日期", value=default_end_datetime, interactive=True)
             
             gr.Markdown("### 3. 开始总结")
-            run_button = gr.Button("🚀 对选定日期范围进行总结", variant="primary", interactive=False)
+            run_button = gr.Button("🚀 对选定日期范围进行总结", variant="primary", interactive=True)
             
-            progress_output = gr.Textbox(label="实时日志", lines=10, interactive=False)
+            progress_output = gr.Textbox(label="实时日志", lines=3, interactive=False)
 
         with gr.Column(scale=2):
             gr.Markdown("### ✨ AI 总结结果")
