@@ -33,7 +33,7 @@ def get_decoded_header(header_string):
             full_header.append(str(part))
     return ''.join(full_header)
 
-def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
+def fetch_unread_email_dates_and_update_ui(mailbox_name, progress=gr.Progress()):
     """连接邮箱获取未读日期，并返回一系列Gradio组件更新指令"""
     if not all([EMAIL_ADDRESS, AUTHORIZATION_CODE]):
         error_msg = "错误：请先在Hugging Face Secrets中设置邮箱信息"
@@ -47,7 +47,7 @@ def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
         mail.login(EMAIL_ADDRESS, AUTHORIZATION_CODE)
         mail.xatom('ID', '("name" "my-gradio-client" "version" "1.0")')
-        status, _ = mail.select('"Newsletter"', readonly=True)
+        status, _ = mail.select(f'"{mailbox_name}"', readonly=True)
         if status != 'OK': raise ConnectionError("错误：无法打开'Newsletter'文件夹")
         
         progress(0.3, desc="✅ 连接成功！正在查找未读邮件...")
@@ -84,7 +84,7 @@ def fetch_unread_email_dates_and_update_ui(progress=gr.Progress()):
         if mail and mail.state == 'SELECTED': mail.close()
         if mail: mail.logout()
 
-def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Progress()):
+def summarize_mail_by_date(mailbox_name, start_dt_timestamp, end_dt_timestamp, progress=gr.Progress()):
     """连接邮箱，获取并总结指定日期范围内的邮件。"""
     
     # 【核心修正】: 将Gradio传入的float时间戳转换为datetime对象
@@ -105,7 +105,7 @@ def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Pro
     start_date = start_dt.date()
     end_date = end_dt.date()
 
-    TARGET_MAILBOX = "Newsletter" 
+    # TARGET_MAILBOX = "Newsletter" 
     all_summaries_html = ""
     mail = None 
     try:
@@ -115,7 +115,7 @@ def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Pro
         mail.xatom('ID', '("name" "my-gradio-client" "version" "1.0")')
         yield "✅ 登录成功，正在选择文件夹...", all_summaries_html
         
-        status, _ = mail.select(f'"{TARGET_MAILBOX}"')
+        status, _ = mail.select(f'"{mailbox_name}"')
         if status != 'OK':
             yield f"❌ 错误：无法选择文件夹 '{TARGET_MAILBOX}'。", ""
             return
@@ -177,24 +177,30 @@ def summarize_mail_by_date(start_dt_timestamp, end_dt_timestamp, progress=gr.Pro
 
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总结助手") as demo:
     gr.Markdown("# 📧 邮件智能总结助手")
-    gr.Markdown("自动连接到“Newsletter”文件夹，一键总结指定日期的所有邮件。")
+    gr.Markdown("自动连接到收件箱，一键总结指定日期的所有邮件。")
+
+    # 预定义收件箱选项列表，方便未来扩展
+    MAILBOX_CHOICES = ["Newsletter", "inbox"]
 
     with gr.Row():
         with gr.Column(scale=1):
-            gr.Markdown("### 1. 连接邮箱")
+            gr.Markdown("### 1. 选择收件箱")
+            mailbox_dropdown = gr.Dropdown(
+                label="选择收件箱",
+                choices=MAILBOX_CHOICES,
+                value="Newsletter", # 默认选中Newsletter
+                interactive=True
+            )
+
+            gr.Markdown("### 2. 连接邮箱")
             connect_button = gr.Button("🔗 连接邮箱并查找未读邮件", variant="secondary")
             
-            gr.Markdown("### 2. 选择日期范围")
-            unread_dates_dropdown = gr.Dropdown(label="高亮的未读邮件日期 (可选)", choices=[], info="选择后会自动填充下面的日期。", interactive=False)
-            # 默认填充昨天的日期
-            yesterday_obj = date.today() - timedelta(days=1)
-            default_start_datetime = datetime.combine(yesterday_obj, datetime.min.time())
-            default_end_datetime = datetime.combine(yesterday_obj, datetime.max.time())
+            gr.Markdown("### 3. 选择日期范围")
+            unread_dates_dropdown = gr.Dropdown(label="未读情况", choices=[], info="选择后会自动填充下面的日期。", interactive=False)
+            start_date_picker = gr.DateTime(label="开始日期", interactive=False)
+            end_date_picker = gr.DateTime(label="结束日期", interactive=False)
             
-            start_date_picker = gr.DateTime(label="开始日期", value=default_start_datetime, interactive=True)
-            end_date_picker = gr.DateTime(label="结束日期", value=default_end_datetime, interactive=True)
-            
-            gr.Markdown("### 3. 开始总结")
+            gr.Markdown("### 4. 开始总结")
             run_button = gr.Button("🚀 对选定日期范围进行总结", variant="primary", interactive=False)
             
             progress_output = gr.Textbox(label="实时日志", lines=10, interactive=False)
@@ -214,7 +220,7 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
         
     connect_button.click(
         fn=fetch_unread_email_dates_and_update_ui,
-        inputs=[],
+        inputs=[mailbox_dropdown],
         outputs=[progress_output, unread_dates_dropdown, start_date_picker, end_date_picker, run_button]
     )
 
@@ -226,7 +232,7 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
 
     run_button.click(
         fn=summarize_mail_by_date,
-        inputs=[start_date_picker, end_date_picker],
+        inputs=[mailbox_dropdown, start_date_picker, end_date_picker],
         outputs=[progress_output, summary_output]
     )
 
