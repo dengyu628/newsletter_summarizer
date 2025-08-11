@@ -157,16 +157,18 @@ def summarize_mail_by_date(mailbox_name, start_dt_timestamp, end_dt_timestamp, p
             yield f"正在为邮件“{subject[:20]}...”调用AI总结...", all_summaries_html
             try:
                 client = genai.Client()
-                prompt = f"请用中文详细总结以下邮件正文内容:\n\n---\n\n{text_content[:8000]}"
+                prompt = f"请用中文详细总结以下邮件正文内容（不包括非主题内容）:\n\n---\n\n{text_content[:8000]}"
                 response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
                 summary = response.text
                 
-                all_summaries_html += f"<h3>{i+1}. {subject}</h3>"
-                all_summaries_html += f"<p style='color: #555; font-size: 0.9em; margin-top:-10px;'><b>发件人:</b> {sender}<br><b>日期:</b> {date_str}</p>"
-                all_summaries_html += f"<div style='border-left: 4px solid #4CAF50; padding-left: 1em; white-space: pre-wrap;'>{summary}</div><hr>"
+                # 使用Markdown语法来构建输出字符串
+                all_summaries_html += f"### {i+1}. {subject}\n"
+                all_summaries_html += f"**发件人:** {sender}  \n**日期:** {date_str}\n\n"
+                all_summaries_html += f"{summary}\n\n---\n"
+                
                 yield f"第 {i+1}/{total_emails} 封邮件总结完毕...", all_summaries_html
             except Exception as e:
-                all_summaries_html += f"<h3>{i+1}. {subject}</h3><p>❌ 调用 Gemini API 失败: {e}</p><hr>"
+                all_summaries_html += f"### {i+1}. {subject}\n\n<p>❌ 调用 Gemini API 失败: {e}</p>\n\n---\n"
                 yield f"第 {i+1}/{total_emails} 封邮件AI总结失败。", all_summaries_html
         
         yield f"🎉 全部 {total_emails} 封邮件处理完毕！", all_summaries_html
@@ -214,7 +216,7 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="teal"), title="邮件智能总�
 
         with gr.Column(scale=2):
             gr.Markdown("### ✨ AI 总结结果")
-            summary_output = gr.HTML()
+            summary_output = gr.Markdown()
 
     def update_date_pickers_from_dropdown(selected_date_str):
         if selected_date_str and " (" in selected_date_str:
